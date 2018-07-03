@@ -240,7 +240,7 @@ class Bot extends EventEmitter {
         }
 
         let parsed = JSON.parse(body)
-        if (parsed.entry[0].messaging !== null && typeof parsed.entry[0].messaging[0] !== 'undefined') {
+        if (parsed.entry && parsed.entry[0].messaging && typeof parsed.entry[0].messaging[0] !== 'undefined') {
           this._handleMessage(parsed)
         }
 
@@ -269,46 +269,59 @@ class Bot extends EventEmitter {
       let events = entry.messaging
 
       events.forEach((event) => {
+        const eventWithMetadata = {
+          'object': json.object,
+          'entry': [
+            {
+              id: entry.id,
+              time: entry.time,
+              messaging: [
+                event,
+              ],
+            },
+          ],
+        };
+
         // handle inbound messages and echos
         if (event.message) {
           if (event.message.is_echo) {
-            this._handleEvent('echo', event)
+            this._handleEvent('echo', event, eventWithMetadata)
           } else {
-            this._handleEvent('message', event)
+            this._handleEvent('message', event, eventWithMetadata)
           }
         }
 
         // handle postbacks
         if (event.postback) {
-          this._handleEvent('postback', event)
+          this._handleEvent('postback', event, eventWithMetadata)
         }
 
         // handle message delivered
         if (event.delivery) {
-          this._handleEvent('delivery', event)
+          this._handleEvent('delivery', event, eventWithMetadata)
         }
 
         // handle message read
         if (event.read) {
-          this._handleEvent('read', event)
+          this._handleEvent('read', event, eventWithMetadata)
         }
 
         // handle authentication
         if (event.optin) {
-          this._handleEvent('authentication', event)
+          this._handleEvent('authentication', event, eventWithMetadata)
         }
 
         // handle referrals (e.g. m.me links)
         if (event.referral) {
-          this._handleEvent('referral', event)
+          this._handleEvent('referral', event, eventWithMetadata)
         }
 
         // handle account_linking
         if (event.account_linking && event.account_linking.status) {
           if (event.account_linking.status === 'linked') {
-            this._handleEvent('accountLinked', event)
+            this._handleEvent('accountLinked', event, eventWithMetadata)
           } else if (event.account_linking.status === 'unlinked') {
-            this._handleEvent('accountUnlinked', event)
+            this._handleEvent('accountUnlinked', event, eventWithMetadata)
           }
         }
       })
@@ -335,8 +348,8 @@ class Bot extends EventEmitter {
     return res.end('Error, wrong validation token')
   }
 
-  _handleEvent (type, event) {
-    this.emit(type, event, this.sendMessage.bind(this, event.sender.id), this._getActionsObject(event))
+  _handleEvent (type, event, eventWithMetadata) {
+    this.emit(type, eventWithMetadata, this.sendMessage.bind(this, event.sender.id), this._getActionsObject(event))
   }
 }
 
